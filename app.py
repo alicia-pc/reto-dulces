@@ -2,137 +2,82 @@ import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(
-    page_title="Reto: 1 Dulce al Mes",
-    page_icon="🍩",
-    layout="centered"
-)
+# --- ⚙️ ZONA DE CONFIGURACIÓN (EDITA ESTO) ---
+# Escribe aquí los nombres EXACTOS que has puesto en la Google Sheet
+USER_A = "Pequeña👩🏻"     # Cambia "Ana" por el nombre real de la columna A
+USER_B = "Pequeño👨🏻"  # Cambia "Carlos" por el nombre real de la columna B
+SHEET_URL = "Hoja 1" # Nombre de la pestaña de la hoja (suele ser "Hoja 1")
 
-# --- TÍTULO Y ESTILOS ---
-st.title("🍩 Reto Anual: 1 Dulce al Mes")
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="Reto: 1 Dulce al Mes", page_icon="🍩", layout="centered")
+
+# --- TÍTULO ---
+st.title(f"🍩 Reto: {USER_A} vs {USER_B}")
 st.markdown("---")
 
-# --- CONEXIÓN A GOOGLE SHEETS ---
-# Creamos la conexión usando el objeto connection de Streamlit
+# --- CONEXIÓN ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Función para cargar datos (con cache para no saturar, pero TTL bajo para ver cambios)
 def load_data():
-    # Lee la hoja completa. Usamos usecols para asegurar orden
-    return conn.read(worksheet="Hoja 1", usecols=[0, 1, 2], ttl=0)
+    # Leemos las columnas por nombre para evitar errores
+    return conn.read(worksheet=SHEET_URL, usecols=[0, 1, 2], ttl=0)
 
-# Intentamos cargar los datos
 try:
     df = load_data()
+    # Verificamos que las columnas existen
+    if USER_A not in df.columns or USER_B not in df.columns:
+        st.error(f"⚠️ Error: No encuentro las columnas '{USER_A}' o '{USER_B}' en la hoja. Revisa que coincidan exactamente.")
+        st.stop()
 except Exception as e:
-    st.error("⚠️ Error conectando a Google Sheets. Revisa tus 'Secrets'.")
+    st.error("⚠️ Error conectando a Google Sheets.")
     st.stop()
 
-# --- LÓGICA DE ESTADOS ---
-# Diccionario para mapear texto a Emoji
-STATE_MAP = {
-    "pending": "⏳",
-    "done": "🍩",
-    "failed": "❌"
-}
+# --- LÓGICA ---
+STATE_MAP = {"pending": "⏳", "done": "🍩", "failed": "❌"}
+NEXT_STATE = {"pending": "done", "done": "failed", "failed": "pending"}
 
-# Diccionario para definir el siguiente estado (Ciclo)
-NEXT_STATE = {
-    "pending": "done",
-    "done": "failed",
-    "failed": "pending"
-}
-
-# --- FUNCIÓN DE ACTUALIZACIÓN ---
 def update_status(month_index, user_column):
-    """
-    1. Lee el estado actual del dataframe.
-    2. Calcula el nuevo estado.
-    3. Actualiza el Dataframe local.
-    4. Sube el cambio a Google Sheets.
-    """
     current_val = df.at[month_index, user_column]
-    
-    # Si la celda está vacía o tiene un valor raro, asumimos pending
-    if current_val not in NEXT_STATE:
-        current_val = "pending"
-        
+    if current_val not in NEXT_STATE: current_val = "pending"
     new_val = NEXT_STATE[current_val]
-    
-    # Actualizamos el dataframe localmente
     df.at[month_index, user_column] = new_val
-    
-    # Actualizamos la hoja de cálculo
-    conn.update(worksheet="Hoja 1", data=df)
-    st.toast(f"Estado actualizado a: {STATE_MAP[new_val]}")
+    conn.update(worksheet=SHEET_URL, data=df)
+    st.toast(f"¡{user_column} actualizado!")
 
-# --- CÁLCULO DE PROGRESO ---
 def calculate_score(user_col):
-    # Cuenta cuántas veces aparece "done"
-    score = df[user_col].value_counts().get("done", 0)
-    return score
+    return df[user_col].value_counts().get("done", 0)
 
-score_a = calculate_score("UsuarioA")
-score_b = calculate_score("UsuarioB")
-total_months = 12
+score_a = calculate_score(USER_A)
+score_b = calculate_score(USER_B)
 
-# --- INTERFAZ GRÁFICA ---
+# --- INTERFAZ ---
+col1, col2 = st.columns(2)
+with col1:
+    st.metric(f"{USER_A}", f"{score_a}/12")
+    st.progress(score_a / 12)
+with col2:
+    st.metric(f"{USER_B}", f"{score_b}/12")
+    st.progress(score_b / 12)
 
-# Métricas Globales
-col_m1, col_m2 = st.columns(2)
-with col_m1:
-    st.metric("Usuario A (Puntos)", f"{score_a}/{total_months}")
-    st.progress(score_a / total_months)
-with col_m2:
-    st.metric("Usuario B (Puntos)", f"{score_b}/{total_months}")
-    st.progress(score_b / total_months)
+st.markdown("### 📅 Calendario")
 
-st.markdown("### 📅 Calendario de Seguimiento")
-st.markdown("Pulsa en el icono para cambiar tu estado.")
-
-# Cabeceras de columnas
+# Encabezados
 h1, h2, h3 = st.columns([1, 2, 2])
 h1.markdown("**Mes**")
-h2.markdown("**Usuario A**")
-h3.markdown("**Usuario B**")
+h2.markdown(f"**{USER_A}**")
+h3.markdown(f"**{USER_B}**")
 
-# Iteramos por cada mes (fila del dataframe)
 for index, row in df.iterrows():
     month = row['Mes']
-    state_a = row['UsuarioA']
-    state_b = row['UsuarioB']
+    # Botones dinámicos usando las variables
+    with h1: st.write("") # Espaciador si hace falta, o dejar el loop anterior
     
-    # Validar que el estado existe, si no, poner pending visualmente
-    icon_a = STATE_MAP.get(state_a, "⏳")
-    icon_b = STATE_MAP.get(state_b, "⏳")
-
     c1, c2, c3 = st.columns([1, 2, 2])
+    with c1: st.markdown(f"**{month}**")
     
-    # Columna Mes
-    with c1:
-        st.markdown(f"**{month}**") # Texto verticalmente centrado
-    
-    # Botón Usuario A
     with c2:
-        # Usamos key único combinando usuario y mes
-        st.button(
-            icon_a, 
-            key=f"btn_a_{index}", 
-            on_click=update_status, 
-            args=(index, "UsuarioA"),
-            use_container_width=True
-        )
-
-    # Botón Usuario B
+        st.button(STATE_MAP.get(row[USER_A], "⏳"), key=f"a_{index}", on_click=update_status, args=(index, USER_A), use_container_width=True)
     with c3:
-        st.button(
-            icon_b, 
-            key=f"btn_b_{index}", 
-            on_click=update_status, 
-            args=(index, "UsuarioB"),
-            use_container_width=True
-        )
+        st.button(STATE_MAP.get(row[USER_B], "⏳"), key=f"b_{index}", on_click=update_status, args=(index, USER_B), use_container_width=True)
 
 st.markdown("---")
-st.caption("Hecho con 🐍 Python y Streamlit")
