@@ -70,7 +70,6 @@ h3.markdown(f"**{USER_B}**")
 for index, row in df.iterrows():
     month = row['Mes']
     # Botones dinámicos usando las variables
-    with h1: st.write("") # Espaciador si hace falta, o dejar el loop anterior
     
     c1, c2, c3 = st.columns([1, 2, 2])
     with c1: st.markdown(f"**{month}**")
@@ -81,4 +80,10 @@ for index, row in df.iterrows():
         st.button(STATE_MAP.get(row[USER_B], "⏳"), key=f"b_{index}", on_click=update_status, args=(index, USER_B), use_container_width=True)
 
 st.markdown("---")
-st.caption("Hecho con ❤️ y Python")
+st.caption("""
+    <div style='text-align: right; color: gray; font-size: small;'>
+        Hecho con ❤️ y Python
+    </div>
+    """,
+    unsafe_allow_html=True
+)")
