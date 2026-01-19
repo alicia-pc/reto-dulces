@@ -12,7 +12,7 @@ SHEET_URL = "Hoja 1" # Nombre de la pestaña de la hoja (suele ser "Hoja 1")
 st.set_page_config(page_title="Reto: 1 Dulce al Mes", page_icon="🍩", layout="centered")
 
 # --- TÍTULO ---
-st.title(f"🍩 Reto: {USER_A} vs {USER_B}")
+st.title(f"🍩 Reto: 1 Dulce al Mes")
 st.markdown("---")
 
 # --- CONEXIÓN ---
@@ -81,3 +81,4 @@ for index, row in df.iterrows():
         st.button(STATE_MAP.get(row[USER_B], "⏳"), key=f"b_{index}", on_click=update_status, args=(index, USER_B), use_container_width=True)
 
 st.markdown("---")
+st.caption("Hecho con ❤️ y Python")
